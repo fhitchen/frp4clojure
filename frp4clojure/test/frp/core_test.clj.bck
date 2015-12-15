@@ -1,0 +1,101 @@
+(ns frp.core-test
+  (:require [clojure.test :refer :all]
+            [frp.core :refer :all])
+  (:import [nz.sodium])
+  (:import [nz.sodium Operational StreamSink CellSink Cell Transaction])
+  (:import [java.util ArrayList]))
+
+(set! *warn-on-reflection* true)
+
+(deftest hold-test
+  (testing "hold"
+    (let [e (new StreamSink)
+          b (.hold e 0)
+          out (new ArrayList)
+          run (proxy [nz.sodium.Handler] []
+                  (run [x]
+                    (println (str "in run: " x))
+                    (.add out x)))
+          
+          l (.listen (Operational/updates b) (handle [x] (.add out x)))]
+      (.send e 2)
+      (.send e 9)
+      (.unlisten l)
+      (println out)
+      (is (= out '(2 9))))))
+
+(deftest snapshot-test
+  (testing "snapshot"
+    (let [b (new CellSink 0)
+          trigger (new StreamSink)      
+          out (new ArrayList)
+          run (proxy [nz.sodium.Handler] []
+                  (run [x]
+                    (println (str "in runs: " x))
+                    (.add out x)))
+          l2 (proxy [nz.sodium.Lambda2] []
+               (apply [a b]
+                 (str a " " b)))
+          l (.listen (.snapshot trigger b l2) (handle [x] (.add out x)))]
+      (.send trigger 100)
+      (.send b 2)
+      (.send trigger 200)
+      (.send b 9)
+      (.send b 1)
+      (.send trigger 300)
+      (.unlisten l)
+      (is (= out ["100 0" "200 2" "300 1"])))))
+
+(deftest values-test
+  (testing "values"
+    (let [b (new CellSink 9)
+          out (new ArrayList)
+          run (proxy [nz.sodium.Handler] []
+                  (run [x]
+                    (println (str "in run: " x))
+                    (.add out x)))
+          
+          l (.listen b (handle [x] (.add out x)))]
+      (.send b 2)
+      (.send b 7)
+      (.unlisten l)
+      (println out)
+      (is (= out '(9 2 7))))))
+
+(deftest constant-behavior-test
+  (testing "constant behavior"
+    (let [b (new Cell 12)
+          out (new ArrayList)
+          run (proxy [nz.sodium.Handler] []
+                  (run [x]
+                    (.add out x)))
+          l (.listen b run)]
+      (.unlisten l)
+      (println out)
+      (is (= out '(12))))))
+
+(deftest value-then-map-test
+  (testing "value then map"
+    (let [b (new CellSink 9)
+          out (new ArrayList)
+          handler (proxy [nz.sodium.Handler] []
+                    (run [x]
+                      (println (str "in run: " x))
+                      (.add out x)))
+          run (proxy [nz.sodium.Lambda1] []
+                (apply [x]
+                  (+ x 100)))
+          new (proxy [nz.sodium.Lambda0] []
+                (apply []
+                  (.listen (.map (Operational/value b) run) handler) ))
+          l (Transaction/run new)]
+      (.send b 2)
+      (.send b 7)
+      ;(.unlisten l)
+      (println out)
+      (is (= out [109, 102, 107])))))
+
+
+
+
+
