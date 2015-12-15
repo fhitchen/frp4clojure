@@ -69,25 +69,6 @@
   []
   `(Optional/empty))
 
-
-(def ea (StreamSink.))
-
-(def ec (Transaction/run (apply0 (let [eb (StreamLoop.)
-                                            ec_ (.merge (.map ea (apply1 [x] (mod x 10)))
-                                                        eb
-                                                         (apply2 [x y] (+ x y)))
-                                            eb_out (.filter (.map ea (apply1 [x] (/ x 10)))
-                                                            (apply1 [x] (not= x 0)))]
-                                   (.loop eb eb_out)
-          ec_))))
-
-(pr (class ec))
-
-(def out (ArrayList.))
-(def l (.listen ec (handler [x] (.add out x))))
-   (pr l)
-
-
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
