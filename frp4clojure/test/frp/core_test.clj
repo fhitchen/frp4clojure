@@ -1,7 +1,7 @@
 (ns frp.core-test
   (:require [clojure.test :refer :all]
             [frp.core :refer :all])
-  (:import [nz.sodium Operational Stream StreamSink CellSink Cell CellLoop Transaction Tuple2 Unit Node])
+  (:import [nz.sodium Operational Stream StreamSink CellSink Cell CellLoop Transaction Unit Node])
   (:import [java.util Optional]))
 
 (set! *warn-on-reflection* true)
@@ -171,9 +171,9 @@
     (let [t (Transaction/run (apply0 (let [b1 (CellSink. 3)
                                            b2 (CellSink. 5)]
                                        (.send b2 7)
-                                       (Tuple2. b1 b2))))
-          b1 (.-a t)
-          b2 (.-b t)
+                                       {:b1 b1 :b2 b2})))
+          b1 (:b1 t)
+          b2 (:b2 t)
           out (atom[])
           l (.listen (Cell/lift (apply2 [x y] (+ x y)) b1 b2) (handler [x] (swap! out conj x)))]
       (.unlisten l)
