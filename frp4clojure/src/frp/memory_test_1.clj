@@ -18,7 +18,7 @@
                        (recur)))))
   (let [et (StreamSink.)
         t (.hold et 0)
-        etens (.map et (apply1 [x] (/ x 10)))
+        etens (.map et (apply1 [x] (int (/ x 10))))
         change-tens (Stream/filterOptional (.snapshot et t (apply2 [neu old]
                                                                   (if (= neu old)
                                                                     (oe)
@@ -35,7 +35,8 @@
       (when (< i 1000000000)
         (.send et i)
         (recur (inc i))))
-    (.unlisten l)))
+    (.unlisten l))
+  (System/exit 0))
   
                      
 
