@@ -21,7 +21,8 @@
       (when (< i 1000000000)
         (.send e-change i)
         (recur (inc i))))
-    (.unlisten l)))  
+    (.unlisten l))
+  (System/exit 0))  
   
                      
 

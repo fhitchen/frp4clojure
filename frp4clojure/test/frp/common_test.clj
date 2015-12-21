@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [frp.core :refer :all])
   (:import [nz.sodium])
-  (:import [nz.sodium Operational Stream StreamSink StreamLoop CellSink Cell Transaction Tuple2])
+  (:import [nz.sodium Operational Stream StreamSink StreamLoop CellSink Cell Transaction])
   (:import [java.util ArrayList]))
 
 (deftest test-base-send
