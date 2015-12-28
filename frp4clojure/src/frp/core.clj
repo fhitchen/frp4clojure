@@ -46,14 +46,6 @@
      (^void run ~targs
        ~@body))))
 
-(defmacro run
-  [args & body]
-  (let [targs (into '[this] args)]
-  `(reify java.lang.Runnable
-     (^void run ~targs
-       ~@body))))
-
-
 (defmacro transaction-handler
   [args & body]
   (let [targs (into '[this] args)]
