@@ -14,36 +14,36 @@
                                     (do
                                       (.send sink text)))))))
                                           
-
 (defn listen [source sink]
-  (.. source getDocument
-      (addDocumentListener
-       (proxy [DocumentListener] []
-         (insertUpdate[e] (update-text source sink))
-         (removeUpdate [e] (update-text source sink))
-         (changedUpdate [e] (update-text source sink))))))
+  (let [dl (proxy [DocumentListener] []
+             (insertUpdate[e] (update-text source sink))
+             (removeUpdate [e] (update-text source sink))
+             (changedUpdate [e] (update-text source sink)))]
+    (.. source getDocument
+        (addDocumentListener dl))
+    dl))
 
 (defn s-button
   ([label] (s-button label (Cell. true)))
   ([label enabled]
-   (let [s-clicked (StreamSink.)
-         l (atom 0)
-         button (proxy [JButton] [label]
-                  (removeNotify []
-                    (.unlisten @l)
-                    (proxy-super removeNotify)))
-         act (proxy [ActionListener] []
-               (actionPerformed [event] #( [] (println "in actionPerformed")
-                                          (.send s-clicked Unit/UNIT))))]
-     (.addActionListener button act)
-     (Transaction/post (fn []
-                         (.setEnabled button (.sample enabled))))
-     (reset! l (.listen (Operational/updates enabled) (handler [ena]
-                                                               (if (SwingUtilities/isEventDispatchThread)
-                                                                 (.setEnabled button ena)
-                                                                 (SwingUtilities/invokeLater (fn []
-                                                                                              (.setEnabled button ena)))))))
-     {:jbutton button :s-clicked s-clicked})))
+     (let [s-clicked-sink (StreamSink.)
+           l (atom 0)
+           button (proxy [JButton] [label]
+                    (removeNotify []
+                      (.unlisten @l)
+                      (proxy-super removeNotify)))]
+       (.addActionListener button
+                           (proxy [ActionListener] []
+                             (actionPerformed [event] (.send s-clicked-sink Unit/UNIT))))
+       (Transaction/post (fn []
+                           (.setEnabled button (.sample enabled))))
+       (reset! l (.listen (Operational/updates enabled) (handler [ena]
+                                                                 (.println *err* "in s-button handler")
+                                                                 (if (SwingUtilities/isEventDispatchThread)
+                                                                   (.setEnabled button ena)
+                                                                   (SwingUtilities/invokeLater (fn []
+                                                                                                 (.setEnabled button ena)))))))
+       {:jbutton button :s-clicked s-clicked-sink :listner l})))
      
          
 
@@ -84,16 +84,15 @@
                         (removeNotify []
                           (.unlisten @l)
                           (proxy-super removeNotify)))
-         s-text (Stream.)
          dl (listen s-text-field s-user-changes)]
-     (println (str "dl: " dl))
      (Transaction/post (fn [] (.setEnabled s-text-field (.sample enabled))))
      (reset! l (.append (.listen s-text (handler [text] (SwingUtilities/invokeLater
                                                          (fn []
-                                                           (println "in remove document listener")
-                                                           (.removeDocumentListener (.getDocument dl))
+                                                           (.. s-text-field getDocument
+                                                               (removeDocumentListener dl))
                                                            (.setText s-text-field text)
-                                                           (.addDocumentListener (.getDocument dl))
+                                                           (.. s-text-field getDocument
+                                                               (addDocumentListener dl))
                                                            (.send s-decrement -1)))))
                         (.listen (Operational/updates enabled)
                                  (handler [ena] (if (SwingUtilities/isEventDispatchThread)
@@ -104,52 +103,56 @@
                                                     (println "dispatch else")
                                                     (SwingUtilities/invokeLater (fn []
                                                                                 (.setEnabled s-text-field ena)))))))))
-     {:jtext s-text-field :cell text })))
+     {:jtext s-text-field :cell text :stream s-user-changes :dl dl})))
   
+(defn label
+  []
+ (let [frame (JFrame. "label")
+       msg (s-text-field "Hello")
+       label (s-label (:cell msg))]
+   (doto frame
+     (.setLayout (FlowLayout.))
+                                        ;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
+     (.add (:jtext msg))
+     (.add label)
+     (.setSize 400 160)
+     (.setVisible true))))
 
-  
-(let [frame (JFrame. "label")
-      msg (s-text-field "Hello")
-      label (s-label (:cell msg))]
-  (doto frame
-    (.setLayout (FlowLayout.))
-    ;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
-    (.add (:jtext msg))
-    (.add label)
-    (.setSize 400 160)
-    (.setVisible true)))
+(defn frp-reverse
+  []
+ (let [frame (JFrame. "reverse")
+       msg (s-text-field "Hello")
+       reversed (.map (:cell msg) (apply1 [t]
+                                          (s/reverse t)))
+       label (s-label reversed)]
+   (doto frame
+     (.setLayout (FlowLayout.))
+                                        ;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
+     (.add (:jtext msg))
+     (.add label)
+     (.setSize 400 160)
+     (.setVisible true))))
 
-(let [frame (JFrame. "reverse")
-      msg (s-text-field "Hello")
-      reversed (.map (:cell msg) (apply1 [t]
-                                   (s/reverse t)))
-      label (s-label reversed)]
-  (doto frame
-    (.setLayout (FlowLayout.))
-    ;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
-    (.add (:jtext msg))
-    (.add label)
-    (.setSize 400 160)
-    (.setVisible true)))
+(defn gamechat
+  []
+  (let [frame (JFrame. "gamechat")
+        onegai (s-button "Onegai shimasu" (Cell. true))
+        thanks (s-button "Thank you" (Cell. true))
+        s-onegai (.map (:s-clicked onegai) (apply1 [u](str "Onegai shimasu")))
+        s-thanks (.map (:s-clicked thanks) (apply1 [u] (str "Thank you")))
+        s-canned (.orElse s-onegai s-thanks)
+        text (s-text-field s-canned "")]
+    (doto frame
+      (.setLayout (FlowLayout.))
+                                        ;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
+      (.add (:jtext text))
+      (.add (:jbutton onegai))
+      (.add (:jbutton thanks))
+      (.setSize 400 160)
+      (.setVisible true))))
 
-(let [frame (JFrame. "gamechat")
-      onegai (s-button "Onegai shimasu")
-      thanks (s-button "Thank you")
-      s-onegai (.map (:s-clicked onegai) (apply1 [u] (str "Onegai shimasu")))
-      s-thanks (.map (:s-clicked thanks) (apply1 [u] (str "Thank you")))
-      foo (println (class s-thanks))
-      s-canned (.orElse s-onegai s-thanks)
-      text (s-text-field s-canned "")]
-  (println (class (:cell text)))
-  (doto frame
-    (.setLayout (FlowLayout.))
-    ;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
-    (.add (:jtext text))
-    (.add (:jbutton onegai))
-    (.add (:jbutton thanks))
-    (.setSize 400 160)
-    (.setVisible true)))
-
-
-
-
+(defn -main
+  [& args]
+  (gamechat)
+  (frp-reverse)
+  (label))
