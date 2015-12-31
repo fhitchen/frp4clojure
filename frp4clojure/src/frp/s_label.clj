@@ -151,8 +151,29 @@
       (.setSize 400 160)
       (.setVisible true))))
 
+(defn redgreen
+  []
+  (let [frame (JFrame. "redgreen")
+        red (s-button "red")
+        green (s-button "green")
+        s-red (.map (:s-clicked red) (apply1 [u] (str "red")))
+        s-green (.map (:s-clicked green) (apply1 [u] (str "green")))
+        s-color (.orElse s-red s-green)
+        color (.hold s-color "")
+        lbl (s-label color)]
+    (doto frame
+      (.setLayout (FlowLayout.))
+                                        ;(.setDefaultCloseOperation
+                   ;JFrame/EXIT_ON_CLOSE)
+      (.add (:jbutton red))
+      (.add (:jbutton green))
+      (.add lbl)
+      (.setSize 400 160)
+      (.setVisible true))))
+
 (defn -main
   [& args]
+  (redgreen)
   (gamechat)
   (frp-reverse)
   (label))
